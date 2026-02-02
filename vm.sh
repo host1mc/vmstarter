@@ -1,57 +1,58 @@
 #!/bin/bash
 set -euo pipefail
 
+# Color codes
+GREEN="\e[32m"
+CYAN="\e[36m"
+YELLOW="\e[33m"
+RESET="\e[0m"
+
 # Function to display banner
 display_banner() {
     clear
-    echo "██████╗  ██████╗ ██████╗ ███╗   ██╗ ██████╗ ███╗   ██╗"
-    echo "██╔══██╗██╔═══██╗██╔══██╗████╗  ██║██╔═══██╗████╗  ██║"
-    echo "██████╔╝██║   ██║██████╔╝██╔██╗ ██║██║   ██║██╔██╗ ██║"
-    echo "██╔═══╝ ██║   ██║██╔═══╝ ██║╚██╗██║██║   ██║██║╚██╗██║"
-    echo "██║     ╚██████╔╝██║     ██║ ╚████║╚██████╔╝██║ ╚████║"
-    echo "╚═╝      ╚═════╝ ╚═╝     ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═══╝"
-    echo "                       vps starter"
+    echo -e "${CYAN}██████╗  ██████╗ ██████╗ ███╗   ██╗ ██████╗ ███╗   ██╗"
+    echo -e "██╔══██╗██╔═══██╗██╔══██╗████╗  ██║██╔═══██╗████╗  ██║"
+    echo -e "██████╔╝██║   ██║██████╔╝██╔██╗ ██║██║   ██║██╔██╗ ██║"
+    echo -e "██╔═══╝ ██║   ██║██╔═══╝ ██║╚██╗██║██║   ██║██║╚██╗██║"
+    echo -e "██║     ╚██████╔╝██║     ██║ ╚████║╚██████╔╝██║ ╚████║"
+    echo -e "╚═╝      ╚═════╝ ╚═╝     ╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═══╝${RESET}"
+    echo -e "                       ${YELLOW}vps starter${RESET}"
     echo
 }
 
-# Function to list all VMs using your original method
+# Function to list VMs
 list_vms() {
-    # Replace the following command with your actual VM list command
+    # Replace this with your real VM listing command
     # Example: virsh list --all | tail -n +3 | awk '{print $2}' 
-    VMS=($(ls /home/endevil/vms))  # <-- replace this with your exact VM listing command
+    VMS=($(ls /home/endevil/vms))  # <-- example path; replace as needed
 
-    if [ ${#VMS[@]} -eq 0 ]; then
-        echo "No VMs found!"
-        exit 1
-    fi
-
-    echo "Available VMs:"
+    echo -e "📋 ${GREEN}[INFO]${RESET} 📁 Found ${#VMS[@]} existing VM(s):"
     for i in "${!VMS[@]}"; do
-        echo "  ($((i+1))) ${VMS[$i]}"
+        echo -e "   $((i+1))) ${VMS[$i]} 💤"
     done
 
-    echo -e "\n\n"  # two empty lines before prompt
+    echo -e "\n\n"
 }
 
-# Function to start a VM (replace with your start command)
+# Function to start VM
 start_vm() {
     VM="${1}"
-    echo "Starting VM: $VM ..."
-    # Replace below with actual command to start VM
+    echo -e "\n🚀 Starting VM: ${GREEN}$VM${RESET} ..."
+    # Replace below with actual start command
     # Example: virsh start "$VM"
     sleep 1  # simulate startup
-    echo "VM $VM started!"
+    echo -e "✅ VM ${GREEN}$VM${RESET} started!"
 }
 
 # Main
 display_banner
 list_vms
 
-read -p "Enter the VM number to start: " CHOICE
+read -p "🎯 [INPUT] 🎯 Enter your choice: " CHOICE
 
 # Validate input
 if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#VMS[@]} ]; then
     start_vm "${VMS[$((CHOICE-1))]}"
 else
-    echo "Invalid selection!"
+    echo -e "${YELLOW}[ERROR] Invalid selection!${RESET}"
 fi
