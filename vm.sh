@@ -1,9 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 
-# Directory where VM configs/images are stored
-VM_DIR="$HOME/vms"
-
 # Function to display banner
 display_banner() {
     clear
@@ -17,51 +14,44 @@ display_banner() {
     echo
 }
 
-# Function to list VMs
+# Function to list all VMs using your original method
 list_vms() {
-    local vms=()
-    if [[ -d "$VM_DIR" ]]; then
-        vms=($(ls "$VM_DIR" | grep '\.conf$' | sed 's/\.conf$//'))
-    fi
+    # Replace the following command with your actual VM list command
+    # Example: virsh list --all | tail -n +3 | awk '{print $2}' 
+    VMS=($(ls /home/endevil/vms))  # <-- replace this with your exact VM listing command
 
-    if [ ${#vms[@]} -eq 0 ]; then
-        echo "No VMs found in $VM_DIR"
-        return 1
+    if [ ${#VMS[@]} -eq 0 ]; then
+        echo "No VMs found!"
+        exit 1
     fi
 
     echo "Available VMs:"
-    for i in "${!vms[@]}"; do
-        printf "  (%d) %s\n" $((i+1)) "${vms[$i]}"
+    for i in "${!VMS[@]}"; do
+        echo "  ($((i+1))) ${VMS[$i]}"
     done
 
-    echo -e "\n\n"
-    echo "${vms[@]}"  # Return the array for selection
+    echo -e "\n\n"  # two empty lines before prompt
 }
 
-# Function to start selected VM
+# Function to start a VM (replace with your start command)
 start_vm() {
-    local vm_name="$1"
-    # You can call your full start_vm function here
-    echo "Starting VM: $vm_name ..."
-    # Example placeholder:
-    # ./start_vm.sh "$vm_name"
+    VM="${1}"
+    echo "Starting VM: $VM ..."
+    # Replace below with actual command to start VM
+    # Example: virsh start "$VM"
+    sleep 1  # simulate startup
+    echo "VM $VM started!"
 }
 
 # Main
 display_banner
+list_vms
 
-vms=($(list_vms))
-if [ ${#vms[@]} -eq 0 ]; then
-    exit 0
+read -p "Enter the VM number to start: " CHOICE
+
+# Validate input
+if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#VMS[@]} ]; then
+    start_vm "${VMS[$((CHOICE-1))]}"
+else
+    echo "Invalid selection!"
 fi
-
-# Prompt for selection
-while true; do
-    read -p "Enter VM number to start: " choice
-    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#vms[@]} ]; then
-        start_vm "${vms[$((choice-1))]}"
-        break
-    else
-        echo "Invalid selection, try again."
-    fi
-done
