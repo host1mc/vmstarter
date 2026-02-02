@@ -2,28 +2,33 @@
 set -euo pipefail
 
 # =============================
-# ARY123 ASCII Header Function
+# ARY123 ASCII Header Function with Colors
 # =============================
 display_header() {
     clear
-    cat << "EOF"
+    # Colors
+    local RED="\033[1;31m"
+    local GREEN="\033[1;32m"
+    local YELLOW="\033[1;33m"
+    local BLUE="\033[1;34m"
+    local MAGENTA="\033[1;35m"
+    local CYAN="\033[1;36m"
+    local RESET="\033[0m"
 
+    cat << EOF
 
-    
-  /$$$$$$  /$$$$$$$  /$$     /$$         /$$    /$$$$$$   /$$$$$$ 
+${CYAN}  /$$$$$$  /$$$$$$$  /$$     /$$         /$$    /$$$$$$   /$$$$$$ 
  /$$__  $$| $$__  $$|  $$   /$$/       /$$$$   /$$__  $$ /$$__  $$
 | $$  \ $$| $$  \ $$ \  $$ /$$/       |_  $$  |__/  \ $$|__/  \ $$
 | $$$$$$$$| $$$$$$$/  \  $$$$/          | $$    /$$$$$$/   /$$$$$/
 | $$__  $$| $$__  $$   \  $$/           | $$   /$$____/   |___  $$
 | $$  | $$| $$  \ $$    | $$            | $$  | $$       /$$  \ $$
 | $$  | $$| $$  | $$    | $$           /$$$$$$| $$$$$$$$|  $$$$$$/
-|__/  |__/|__/  |__/    |__/          |______/|________/ \______/ 
-                                                                  
-                                                                  
-                                                                  
-                  
-                   ARY123
-==============================================================
+|__/  |__/|__/  |__/    |__/          |______/|________/ \______/ ${RESET}
+
+${YELLOW}                          ARY123${RESET}
+${MAGENTA}==============================================================${RESET}
+
 EOF
 }
 
@@ -34,9 +39,13 @@ VM_DIR="$HOME/vms"
 print_status() {
     local type=$1
     local message=$2
+    local RED="\033[1;31m"
+    local BLUE="\033[1;34m"
+    local RESET="\033[0m"
+
     case $type in
-        "INFO") echo -e "\033[1;34m[INFO]\033[0m $message" ;;
-        "ERROR") echo -e "\033[1;31m[ERROR]\033[0m $message" ;;
+        "INFO") echo -e "${BLUE}[INFO]${RESET} $message" ;;
+        "ERROR") echo -e "${RED}[ERROR]${RESET} $message" ;;
         *) echo "$message" ;;
     esac
 }
@@ -104,13 +113,19 @@ main_menu() {
         return
     fi
 
-    echo "Available VMs:"
+    local GREEN="\033[1;32m"
+    local YELLOW="\033[1;33m"
+    local RESET="\033[0m"
+
+    echo -e "${YELLOW}Available VMs:${RESET}"
     for i in "${!vms[@]}"; do
         local status="Stopped"
+        local color="$GREEN"
         if is_vm_running "${vms[$i]}"; then
             status="Running"
+            color="\033[1;36m"  # Cyan for running
         fi
-        printf "%2d) %s [%s]\n" $((i+1)) "${vms[$i]}" "$status"
+        printf "%2d) %s [%b%s%b]\n" $((i+1)) "${vms[$i]}" "$color" "$status" "$RESET"
     done
 
     read -p "Enter VM number to start: " vm_num
