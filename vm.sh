@@ -1,95 +1,90 @@
 #!/bin/bash
+set -euo pipefail
 
-# Load VM config
+# Directory where VM configs are stored
+VM_DIR="$HOME/vms"
+
+# Colored status output
+print_status() {
+    local type=$1
+    local message=$2
+    case $type in
+        "INFO") echo -e "\033[1;34m[INFO]\033[0m $message" ;;
+        "ERROR") echo -e "\033[1;31m[ERROR]\033[0m $message" ;;
+        *) echo "$message" ;;
+    esac
+}
+
+# Load VM configuration
 load_vm_config() {
     local vm_name=$1
     local config_file="$VM_DIR/$vm_name.conf"
-
-    if [[ ! -f "$config_file" ]]; then
+    if [[ -f "$config_file" ]]; then
+        source "$config_file"
+        return 0
+    else
+        print_status "ERROR" "Config for VM '$vm_name' not found"
         return 1
     fi
-
-    # shellcheck source=/dev/null
-    source "$config_file"
-    return 0
 }
 
-# Function to get all VM names (from config files)
+# Get list of VMs
 get_vm_list() {
-    find "$VM_DIR" -maxdepth 1 -name "*.conf" -exec basename {} .conf \; 2>/dev/null | sort
+    find "$VM_DIR" -name "*.conf" -exec basename {} .conf \; 2>/dev/null | sort
 }
 
-# Function to check if VM is running
+# Check if VM is running
 is_vm_running() {
     local vm_name=$1
-    
-    # Load VM config to get image file path
-    if load_vm_config "$vm_name" 2>/dev/null; then
-        # Check for any QEMU process using this VM image
-        if pgrep -f "qemu-system.*$IMG_FILE" >/dev/null; then
-            return 0  # running
-        fi
+    load_vm_config "$vm_name" 2>/dev/null || return 1
+    if pgrep -f "qemu-system.*$IMG_FILE" >/dev/null; then
+        return 0
     fi
-    
-    return 1  # stopped
+    return 1
 }
 
-# Function to display VM list with running status
-list_vms_with_status() {
-    local vms=($(get_vm_list))
-    
-    if [ ${#vms[@]} -eq 0 ]; then
-        echo "📂 No VMs found in $VM_DIR"
-        return
-    fi
-    
-    echo "📁 Found ${#vms[@]} VM(s):"
-    echo "----------------------------------------"
-    for vm_name in "${vms[@]}"; do
-        if is_vm_running "$vm_name"; then
-            status="🚀 Running"
-        else
-            status="💤 Stopped"
-        fi
-        echo "🔹 $vm_name - $status"
-    done
-    echo "----------------------------------------"
-}
-
-# Function to start a VM
+# Start a VM
 start_vm() {
     local vm_name=$1
-
     if load_vm_config "$vm_name"; then
         if is_vm_running "$vm_name"; then
-            echo "⚠️ VM '$vm_name' is already running"
+            print_status "INFO" "VM '$vm_name' is already running"
             return 1
         fi
 
-        echo "🚀 Starting VM '$vm_name'..."
-        
-        # QEMU command using config variables
+        print_status "INFO" "Starting VM '$vm_name'..."
         qemu-system-x86_64 \
             -enable-kvm \
             -m "$MEMORY" \
             -smp "$CPUS" \
-            -cpu host \
             -drive "file=$IMG_FILE,format=qcow2,if=virtio" \
             -drive "file=$SEED_FILE,format=raw,if=virtio" \
             -boot order=c \
             -device virtio-net-pci,netdev=n0 \
             -netdev "user,id=n0,hostfwd=tcp::$SSH_PORT-:22" \
             -nographic -serial mon:stdio
-    else
-        echo "❌ VM config for '$vm_name' not found."
-        return 1
     fi
 }
 
-# --- Interactive Menu ---
-echo "📂 Listing all VMs with status..."
-list_vms_with_status
+# Main menu
+main_menu() {
+    local vms=($(get_vm_list))
+    local count=${#vms[@]}
+    echo "Available VMs:"
+    for i in "${!vms[@]}"; do
+        local status="Stopped"
+        if is_vm_running "${vms[$i]}"; then
+            status="Running"
+        fi
+        printf "%2d) %s [%s]\n" $((i+1)) "${vms[$i]}" "$status"
+    done
 
-echo
-read -rp "Enter the VM name you want to start: " vm_to_start
-start_vm "$vm_to_start"
+    read -p "Enter VM number to start: " vm_num
+    if [[ "$vm_num" =~ ^[0-9]+$ ]] && [ "$vm_num" -ge 1 ] && [ "$vm_num" -le $count ]; then
+        start_vm "${vms[$((vm_num-1))]}"
+    else
+        print_status "ERROR" "Invalid selection"
+    fi
+}
+
+main_menu
