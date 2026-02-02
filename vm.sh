@@ -1,82 +1,95 @@
-# Function to get all VM names
-get_vm_list() {
-    find "$VM_DIR" -name "*.conf" -exec basename {} .conf \; 2>/dev/null | sort
-}
+#!/bin/bash
 
-# Load VM configuration
+# Load VM config
 load_vm_config() {
     local vm_name=$1
     local config_file="$VM_DIR/$vm_name.conf"
+
+    if [[ ! -f "$config_file" ]]; then
+        return 1
+    fi
+
+    # shellcheck source=/dev/null
+    source "$config_file"
+    return 0
+}
+
+# Function to get all VM names (from config files)
+get_vm_list() {
+    find "$VM_DIR" -maxdepth 1 -name "*.conf" -exec basename {} .conf \; 2>/dev/null | sort
+}
+
+# Function to check if VM is running
+is_vm_running() {
+    local vm_name=$1
     
-    if [[ -f "$config_file" ]]; then
-        unset VM_NAME OS_TYPE CODENAME IMG_URL HOSTNAME USERNAME PASSWORD
-        unset DISK_SIZE MEMORY CPUS SSH_PORT GUI_MODE PORT_FORWARDS IMG_FILE SEED_FILE CREATED
+    # Load VM config to get image file path
+    if load_vm_config "$vm_name" 2>/dev/null; then
+        # Check for any QEMU process using this VM image
+        if pgrep -f "qemu-system.*$IMG_FILE" >/dev/null; then
+            return 0  # running
+        fi
+    fi
+    
+    return 1  # stopped
+}
+
+# Function to display VM list with running status
+list_vms_with_status() {
+    local vms=($(get_vm_list))
+    
+    if [ ${#vms[@]} -eq 0 ]; then
+        echo "📂 No VMs found in $VM_DIR"
+        return
+    fi
+    
+    echo "📁 Found ${#vms[@]} VM(s):"
+    echo "----------------------------------------"
+    for vm_name in "${vms[@]}"; do
+        if is_vm_running "$vm_name"; then
+            status="🚀 Running"
+        else
+            status="💤 Stopped"
+        fi
+        echo "🔹 $vm_name - $status"
+    done
+    echo "----------------------------------------"
+}
+
+# Function to start a VM
+start_vm() {
+    local vm_name=$1
+
+    if load_vm_config "$vm_name"; then
+        if is_vm_running "$vm_name"; then
+            echo "⚠️ VM '$vm_name' is already running"
+            return 1
+        fi
+
+        echo "🚀 Starting VM '$vm_name'..."
         
-        source "$config_file"
-        return 0
+        # QEMU command using config variables
+        qemu-system-x86_64 \
+            -enable-kvm \
+            -m "$MEMORY" \
+            -smp "$CPUS" \
+            -cpu host \
+            -drive "file=$IMG_FILE,format=qcow2,if=virtio" \
+            -drive "file=$SEED_FILE,format=raw,if=virtio" \
+            -boot order=c \
+            -device virtio-net-pci,netdev=n0 \
+            -netdev "user,id=n0,hostfwd=tcp::$SSH_PORT-:22" \
+            -nographic -serial mon:stdio
     else
-        print_status "ERROR" "📂 Configuration for VM '$vm_name' not found"
+        echo "❌ VM config for '$vm_name' not found."
         return 1
     fi
 }
 
-# Check if VM is running
-is_vm_running() {
-    local vm_name=$1
-    
-    # Check by VM name or image file
-    if pgrep -f "qemu-system.*$vm_name" >/dev/null; then
-        return 0
-    fi
-    if load_vm_config "$vm_name" 2>/dev/null; then
-        if pgrep -f "qemu-system.*$IMG_FILE" >/dev/null; then
-            return 0
-        fi
-    fi
-    
-    return 1
-}
+# --- Interactive Menu ---
+echo "📂 Listing all VMs with status..."
+list_vms_with_status
 
-# Start a VM
-start_vm() {
-    local vm_name=$1
-    
-    if load_vm_config "$vm_name"; then
-        # Check if image is in use
-        if ! check_image_lock "$IMG_FILE" "$vm_name"; then
-            print_status "ERROR" "🔒 Cannot start VM: Image file is locked"
-            return 1
-        fi
-        
-        # Check if VM already running
-        if is_vm_running "$vm_name"; then
-            print_status "WARN" "⚠️ VM '$vm_name' is already running"
-            return 1
-        fi
-        
-        print_status "INFO" "🚀 Starting VM: $vm_name"
-        print_status "INFO" "🔌 SSH: ssh -p $SSH_PORT $USERNAME@localhost"
-        
-        local qemu_cmd=(
-            qemu-system-x86_64
-            -enable-kvm
-            -m "$MEMORY"
-            -smp "$CPUS"
-            -cpu host
-            -drive "file=$IMG_FILE,format=qcow2,if=virtio"
-            -drive "file=$SEED_FILE,format=raw,if=virtio"
-            -boot order=c
-            -device virtio-net-pci,netdev=n0
-            -netdev "user,id=n0,hostfwd=tcp::$SSH_PORT-:22"
-        )
-
-        if [[ "$GUI_MODE" == true ]]; then
-            qemu_cmd+=(-vga virtio -display gtk,gl=on)
-        else
-            qemu_cmd+=(-nographic -serial mon:stdio)
-        fi
-
-        "${qemu_cmd[@]}"
-        print_status "INFO" "🛑 VM $vm_name has been shut down"
-    fi
-}
+echo
+read -rp "Enter the VM name you want to start: " vm_to_start
+start_vm "$vm_to_start"
