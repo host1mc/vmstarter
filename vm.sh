@@ -1,6 +1,32 @@
 #!/bin/bash
 set -euo pipefail
 
+# =============================
+# ARY123 ASCII Header Function
+# =============================
+display_header() {
+    clear
+    cat << "EOF"
+
+
+    
+  /$$$$$$  /$$$$$$$  /$$     /$$         /$$    /$$$$$$   /$$$$$$ 
+ /$$__  $$| $$__  $$|  $$   /$$/       /$$$$   /$$__  $$ /$$__  $$
+| $$  \ $$| $$  \ $$ \  $$ /$$/       |_  $$  |__/  \ $$|__/  \ $$
+| $$$$$$$$| $$$$$$$/  \  $$$$/          | $$    /$$$$$$/   /$$$$$/
+| $$__  $$| $$__  $$   \  $$/           | $$   /$$____/   |___  $$
+| $$  | $$| $$  \ $$    | $$            | $$  | $$       /$$  \ $$
+| $$  | $$| $$  | $$    | $$           /$$$$$$| $$$$$$$$|  $$$$$$/
+|__/  |__/|__/  |__/    |__/          |______/|________/ \______/ 
+                                                                  
+                                                                  
+                                                                  
+                  
+                   ARY123
+==============================================================
+EOF
+}
+
 # Directory where VM configs are stored
 VM_DIR="$HOME/vms"
 
@@ -68,8 +94,16 @@ start_vm() {
 
 # Main menu
 main_menu() {
+    display_header
+
     local vms=($(get_vm_list))
     local count=${#vms[@]}
+    
+    if [ "$count" -eq 0 ]; then
+        print_status "ERROR" "No VMs found in $VM_DIR"
+        return
+    fi
+
     echo "Available VMs:"
     for i in "${!vms[@]}"; do
         local status="Stopped"
@@ -87,4 +121,5 @@ main_menu() {
     fi
 }
 
+# Run the menu
 main_menu
