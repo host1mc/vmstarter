@@ -1,13 +1,27 @@
 #!/bin/bash
 set -euo pipefail
 
-# Color codes
+# ---------- Colors ----------
 GREEN="\e[32m"
 CYAN="\e[36m"
 YELLOW="\e[33m"
 RESET="\e[0m"
 
-# Function to display banner
+# ---------- Status printing ----------
+print_status() {
+    local type=$1
+    local message=$2
+    case $type in
+        INFO) echo -e "${CYAN}[INFO]${RESET} $message" ;;
+        SUCCESS) echo -e "${GREEN}[SUCCESS]${RESET} $message" ;;
+        WARN) echo -e "${YELLOW}[WARN]${RESET} $message" ;;
+        ERROR) echo -e "${YELLOW}[ERROR]${RESET} $message" ;;
+        INPUT) echo -e "${CYAN}[INPUT]${RESET} $message" ;;
+        *) echo "$message" ;;
+    esac
+}
+
+# ---------- Display banner ----------
 display_banner() {
     clear
     echo -e "${CYAN}██████╗  ██████╗ ██████╗ ███╗   ██╗ ██████╗ ███╗   ██╗"
@@ -20,39 +34,44 @@ display_banner() {
     echo
 }
 
-# Function to list VMs
+# ---------- List VMs using your load_vm_config logic ----------
 list_vms() {
-    # Replace this with your real VM listing command
-    # Example: virsh list --all | tail -n +3 | awk '{print $2}' 
-    VMS=($(ls /home/endevil/vms))  # <-- example path; replace as needed
+    VMS=()
+    # Try to detect all VMs by checking which configs can be loaded
+    # This assumes you have a function `get_all_vm_names` or similar
+    # If not, we can simulate it by checking all IMG files or configs
+    for vm_name in $(ls /path/to/vm/configs 2>/dev/null); do
+        if load_vm_config "$vm_name"; then
+            VMS+=("$vm_name")
+        fi
+    done
 
-    echo -e "📋 ${GREEN}[INFO]${RESET} 📁 Found ${#VMS[@]} existing VM(s):"
+    print_status "INFO" "📋 Found ${#VMS[@]} existing VM(s):"
     for i in "${!VMS[@]}"; do
         echo -e "   $((i+1))) ${VMS[$i]} 💤"
     done
-
     echo -e "\n\n"
 }
 
-# Function to start VM
-start_vm() {
-    VM="${1}"
-    echo -e "\n🚀 Starting VM: ${GREEN}$VM${RESET} ..."
-    # Replace below with actual start command
-    # Example: virsh start "$VM"
-    sleep 1  # simulate startup
-    echo -e "✅ VM ${GREEN}$VM${RESET} started!"
+# ---------- Main menu ----------
+main_menu() {
+    display_banner
+    list_vms
+
+    if [ ${#VMS[@]} -eq 0 ]; then
+        print_status "WARN" "No VMs found!"
+        exit 0
+    fi
+
+    read -p "🎯 [INPUT] 🎯 Enter your choice: " CHOICE
+
+    # Validate input
+    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#VMS[@]} ]; then
+        start_vm "${VMS[$((CHOICE-1))]}"
+    else
+        print_status "ERROR" "Invalid selection!"
+    fi
 }
 
-# Main
-display_banner
-list_vms
-
-read -p "🎯 [INPUT] 🎯 Enter your choice: " CHOICE
-
-# Validate input
-if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#VMS[@]} ]; then
-    start_vm "${VMS[$((CHOICE-1))]}"
-else
-    echo -e "${YELLOW}[ERROR] Invalid selection!${RESET}"
-fi
+# ---------- Start the script ----------
+main_menu
